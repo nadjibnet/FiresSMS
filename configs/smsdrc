@@ -13,17 +13,20 @@ InboxFormat = unicode
 OutboxFormat = unicode
 TransmitFormat = unicode
 #unicode support end
-Service = files
+
+#database configuration
+Service = SQL
+Driver = sqlite3
+Database = smsd.db
+DBDir = /var/lib/gammu/
+#database configuration end
+
 PhoneID = modem1
 CommTimeout = 5
 SendTimeout = 30
 MaxRetries = 5
 ReceiveFrequency = 5
-# Paths for SMS storage
-InboxPath = /var/spool/gammu/inbox/
-OutboxPath = /var/spool/gammu/outbox/
-SentSMSPath = /var/spool/gammu/sent/
-ErrorSMSPath = /var/spool/gammu/error/
+
 # Debugging options
 LogFile = syslog
 LogFormat = text
