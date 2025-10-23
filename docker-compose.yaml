@@ -7,7 +7,7 @@ services:
     volumes:
       - ./configs/gammurc:/etc/gammurc
       - ./configs/smsdrc:/etc/smsd/smsdrc
-      - ./volumes/database:/var/spool/gammu/
+      - ./database/:/var/lib/gammu/
 #    command: tail -f /dev/null
     devices:
       - /dev/ttyUSB0:/dev/ttyUSB0
@@ -31,7 +31,7 @@ services:
     environment:
       - API_TOKEN=${API_TOKEN}
     volumes:
-      - ./volumes/database:/var/lib/gammu/
+      - ./database/:/var/lib/gammu/
     restart: always
 networks:
   default:
