@@ -8,8 +8,8 @@
 - 📨 Send and receive SMS messages via a web API
 - 🐳 Containerised using Docker and Docker Compose
 - ⚙️ Configurable Gammu integration for different modem types
-- 📁 Shared volume structure for SMS inbox/outbox
 - 🔧 Simple, portable deployment
+- 💽 Use the SQLite database
 
 ---
 
@@ -22,6 +22,7 @@ FiresSMS/
 ├── dockers/
 │ ├── api/ # REST API for SMS interaction
 │ └── gammu-smsd/ # Gammu SMSD container
+├── database # folder for database
 ├── docker-compose.yaml
 └── README.md
 ```
@@ -42,7 +43,9 @@ cd FiresSMS
 Edit the configuration files under configs/:
 gammurc – Set device path (e.g., /dev/ttyUSB0)
 
-docker-compose.yml - Set your API token in API section
+docker-compose.yml
+
+Rename .env-example to .env and setup your API token
 
 ### 3. Start Services
 
