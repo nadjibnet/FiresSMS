@@ -7,7 +7,7 @@ services:
     volumes:
       - ./configs/gammurc:/etc/gammurc
       - ./configs/smsdrc:/etc/smsd/smsdrc
-      - ./sms-data:/var/spool/gammu/
+      - ./volumes/sms-data:/var/spool/gammu/
 #    command: tail -f /dev/null
     devices:
       - /dev/ttyUSB0:/dev/ttyUSB0
@@ -29,14 +29,11 @@ services:
     depends_on:
       - gammu
     environment:
-      - API_TOKEN=some-secret-token
+      - API_TOKEN=${API_TOKEN}
     volumes:
-      - ./sms-data:/var/spool/gammu/
+      - ./volumes/sms-data:/var/spool/gammu/
     restart: always
-
 networks:
   default:
     driver: bridge
 
-volumes:
-  sms-data:
