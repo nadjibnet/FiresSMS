@@ -1,2 +1,4 @@
 /sms-data/*
+/database/*.db
 .env
+!.env-example
