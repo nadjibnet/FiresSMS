@@ -93,16 +93,16 @@ The response:
 ```json
 [
     {
-        "content": "SMS one",
-        "filename": "IN20250728_132555_00_+420123456789_00.txt"
+        "from": "+420123456789",
+        "id": 1,
+        "message": "Thanks for info",
+        "received": "2025-10-26 08:51:22"
     },
     {
-        "content": "SMS two",
-        "filename": "IN20250807_073751_00_+420123456789_00.txt"
-    },
-    {
-        "content": "SMS three",
-        "filename": "IN20250609_112118_00_+420123456789_00.txt"
+        "from": "+420234567891",
+        "id": 2,
+        "message": "Thanks info 2",
+        "received": "2025-10-26 08:51:31"
     }
 ]
 ```
