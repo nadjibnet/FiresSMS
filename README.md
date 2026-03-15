@@ -1,6 +1,6 @@
-# FireSMS
+# FiresSMS
 
-**FireSMS** is a Dockerized SMS Gateway built using [Gammu SMSD](https://wammu.eu/docs/manual/smsd/) and a custom API interface. It allows sending and receiving SMS messages using a GSM/USB modem connected to your server. FireSMS is ideal for IoT devices, alerting systems, or SMS-based applications.
+**FireSMS** is a Dockerized SMS Gateway built using [Gammu SMSD](https://wammu.eu/docs/manual/smsd/) and a custom API interface. It allows sending and receiving SMS messages using a GSM/USB modem connected to your server. FiresSMS is ideal for IoT devices, alerting systems, or SMS-based applications.
 
 ---
 
@@ -8,20 +8,21 @@
 - 📨 Send and receive SMS messages via a web API
 - 🐳 Containerised using Docker and Docker Compose
 - ⚙️ Configurable Gammu integration for different modem types
-- 📁 Shared volume structure for SMS inbox/outbox
 - 🔧 Simple, portable deployment
+- 💽 Use the SQLite database
 
 ---
 
 ## 🧱 Project Structure
 ```
-FireSMS/
+FiresSMS/
 ├── configs/
 │ ├── gammurc # Gammu configuration (device, connection)
 │ └── smsdrc # SMS Daemon configuration
 ├── dockers/
 │ ├── api/ # REST API for SMS interaction
 │ └── gammu-smsd/ # Gammu SMSD container
+├── database # folder for database
 ├── docker-compose.yaml
 └── README.md
 ```
@@ -33,8 +34,8 @@ FireSMS/
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/Fires04/FireSMS.git
-cd FireSMS
+git clone https://github.com/Fires04/FiresSMS.git
+cd FiresSMS
 ```
 
 ### 2. Configure Gammu
@@ -42,7 +43,9 @@ cd FireSMS
 Edit the configuration files under configs/:
 gammurc – Set device path (e.g., /dev/ttyUSB0)
 
-docker-compose.yml - Set your API token in API section
+docker-compose.yml
+
+Rename .env-example to .env and setup your API token
 
 ### 3. Start Services
 
@@ -83,27 +86,26 @@ Content-Type: application/json
 
 
 #### Receiving SMS
+The API will also allow read the sms by GET request.
 
-The received messages will appear in the shared volume used by the api service, usually mapped from Gammu's inbox. The API will also allow read the sms by GET request.
 ```http://yoururl.url:8080/receive?token=my-secret-token```
 The response:
 ```json
 [
     {
-        "content": "SMS one",
-        "filename": "IN20250728_132555_00_+420123456789_00.txt"
+        "from": "+420123456789",
+        "id": 1,
+        "message": "Thanks for info",
+        "received": "2025-10-26 08:51:22"
     },
     {
-        "content": "SMS two",
-        "filename": "IN20250807_073751_00_+420123456789_00.txt"
-    },
-    {
-        "content": "SMS three",
-        "filename": "IN20250609_112118_00_+420123456789_00.txt"
+        "from": "+420234567891",
+        "id": 2,
+        "message": "Thanks info 2",
+        "received": "2025-10-26 08:51:31"
     }
 ]
 ```
-The messages are then automatically deleted.
 
 #### 🛠️ Configuration
 
