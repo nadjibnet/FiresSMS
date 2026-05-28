@@ -21,6 +21,11 @@ FiresSMS/
 │ └── smsdrc # SMS Daemon configuration
 ├── dockers/
 │ ├── api/ # REST API for SMS interaction
+│ │ ├── app.py # Flask routes (thin layer)
+│ │ └── services/ # Business logic called by the routes
+│ │ ├── db.py # SQLite connection to the Gammu DB
+│ │ ├── auth.py # API token validation
+│ │ └── sms.py # send / receive / pending / status logic
 │ └── gammu-smsd/ # Gammu SMSD container
 ├── database # folder for database
 ├── docker-compose.yaml
@@ -83,6 +88,114 @@ Content-Type: application/json
   "message": "Hello from Flask SMS gateway!"
 }
 ```
+
+The response returns the queue ID(s) so each message can be tracked:
+
+```json
+{
+  "status": "Message queued",
+  "ack": false,
+  "queued": [
+    { "id": 42, "number": "+420123456789" }
+  ]
+}
+```
+
+**Requesting a delivery report (ACK)** — add `"ack": true` to ask the network
+for a delivery receipt for that message. The result can then be polled via
+`/status` (see below). Note: not all modems/operators support delivery reports,
+and some bill extra for them.
+
+```http
+POST /send
+Content-Type: application/json
+{
+  "token": "my-secret-token",
+  "number": "+420123456789",
+  "message": "Hello from Flask SMS gateway!",
+  "ack": true
+}
+```
+
+#### Viewing the send queue
+
+List the SMS currently waiting to be sent (the `outbox`). A message only
+appears here while it is pending or retrying; once handed to the network it
+leaves the queue and can be tracked via `/status`.
+
+```http://yoururl.url:8080/pending?token=my-secret-token```
+The response:
+```json
+{
+  "count": 1,
+  "queue": [
+    {
+      "id": 42,
+      "to": "+420123456789",
+      "message": "Hello from Flask SMS gateway!",
+      "status": "Reserved",
+      "status_code": -1,
+      "retries": 0,
+      "queued_at": "2025-10-26 08:51:22",
+      "send_after": "2025-10-26 08:51:22",
+      "ack_requested": true
+    }
+  ]
+}
+```
+
+#### Gateway status (global overview)
+
+Returns a snapshot of the whole database: message counts per table, what is
+currently pending, the delivery (ACK) breakdown of sent messages, and modem
+state.
+
+```http://yoururl.url:8080/status?token=my-secret-token```
+The response:
+```json
+{
+  "totals": {
+    "pending": 1,
+    "sent": 12,
+    "inbox": 0,
+    "archive": 34
+  },
+  "pending": {
+    "count": 1,
+    "by_status": { "Reserved": 1 },
+    "items": [
+      {
+        "id": 42,
+        "to": "+420123456789",
+        "status": "Reserved",
+        "retries": 0,
+        "queued_at": "2025-10-26 08:51:22",
+        "ack_requested": true
+      }
+    ]
+  },
+  "sent": {
+    "count": 12,
+    "by_status": { "SendingOKNoReport": 2, "DeliveryOK": 9, "DeliveryFailed": 1 }
+  },
+  "modems": [
+    {
+      "id": "modem1",
+      "client": "Gammu 1.x",
+      "signal": 67,
+      "battery": -1,
+      "can_send": true,
+      "can_receive": true,
+      "sent": 12,
+      "received": 34
+    }
+  ]
+}
+```
+
+The `sent.by_status` breakdown is where ACKs surface: `DeliveryOK` /
+`DeliveryFailed` / `DeliveryPending` only appear for messages sent with
+`"ack": true`; others stay at `SendingOK` / `SendingOKNoReport`.
 
 
 #### Receiving SMS
