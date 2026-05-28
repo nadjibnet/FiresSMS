@@ -61,7 +61,7 @@ api: the REST API for sending and managing messages
 Sending an SMS
 
 POST to the API:
-URL is http://yourserver:8080 (if you need to change the port, then you can edit the Docker compose file to change the port routing to the Docker container or edit the Python app under /dockers/api/app.py
+URL is http://yourserver:8080/send (if you need to change the port, then you can edit the Docker compose file to change the port routing to the Docker container or edit the Python app under /dockers/api/app.py
 
 ```http
 POST /send
