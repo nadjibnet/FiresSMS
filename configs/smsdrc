@@ -27,6 +27,11 @@ SendTimeout = 30
 MaxRetries = 5
 ReceiveFrequency = 5
 
+# Apply incoming delivery reports (ACK) to the message status in the DB.
+# Messages still opt in to a report per-send via the API's "ack": true flag;
+# this only controls that received reports update sentitems (Status/DeliveryDateTime).
+DeliveryReport = sms
+
 # Debugging options
 LogFile = syslog
 LogFormat = text

@@ -67,6 +67,35 @@ def pending_sms():
 
 
 # -----------------------------
+# Endpoint: /sent
+# -----------------------------
+@app.route("/sent", methods=["GET"])
+def sent_sms():
+    if not validate_token(request.args.get("token")):
+        return jsonify({"error": "Invalid or missing token"}), 401
+
+    try:
+        sent = sms.get_sent()
+        return jsonify({"count": len(sent), "sent": sent}), 200
+    except Exception as e:
+        app.logger.exception("Failed to read sent items: %s", e)
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/sent", methods=["DELETE"])
+def delete_sent_sms():
+    if not validate_token(request.args.get("token")):
+        return jsonify({"error": "Invalid or missing token"}), 401
+
+    try:
+        deleted = sms.delete_sent()
+        return jsonify({"status": "Sent messages removed", "deleted": deleted}), 200
+    except Exception as e:
+        app.logger.exception("Failed to delete sent items: %s", e)
+        return jsonify({"error": str(e)}), 500
+
+
+# -----------------------------
 # Endpoint: /status
 # -----------------------------
 @app.route("/status", methods=["GET"])

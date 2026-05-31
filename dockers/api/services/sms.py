@@ -110,6 +110,81 @@ def get_pending():
     return queue
 
 
+#: sentitems statuses that mean a network delivery report (ACK) came back.
+_DELIVERY_STATES = {"DeliveryOK", "DeliveryFailed", "DeliveryPending", "DeliveryUnknown"}
+#: status gammu sets when a message was sent but NO delivery report was requested.
+_NO_REPORT = "SendingOKNoReport"
+
+
+def get_sent():
+    """List all sent messages with content, timestamps and ACK state.
+
+    gammu-smsd stores one row per message part in `sentitems`; parts sharing an
+    ID are merged back into a single message here.
+
+    - `ack_requested`: whether a delivery report was asked for at send time
+      (False only when gammu marked it `SendingOKNoReport`). Use this to tell
+      "no report requested" apart from "requested but not yet received".
+    - `ack_received`: True when a report has come back for every part (Status
+      reached a Delivery* state).
+    - `delivered_at`: the time of that report, or null if none arrived.
+    """
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT ID, SequencePosition, DestinationNumber, TextDecoded,
+               Status, SendingDateTime, DeliveryDateTime
+        FROM sentitems
+        ORDER BY SendingDateTime DESC, ID DESC, SequencePosition ASC;
+    """)
+    rows = cur.fetchall()
+    conn.close()
+
+    # Preserve first-seen (newest) order while grouping parts by message ID.
+    grouped = {}
+    order = []
+    for row in rows:
+        mid = row["ID"]
+        if mid not in grouped:
+            grouped[mid] = []
+            order.append(mid)
+        grouped[mid].append(row)
+
+    sent = []
+    for mid in order:
+        parts = sorted(grouped[mid], key=lambda r: r["SequencePosition"])
+        message = "".join(p["TextDecoded"] or "" for p in parts)
+        delivered = [p["DeliveryDateTime"] for p in parts if p["DeliveryDateTime"]]
+        statuses = [p["Status"] for p in parts]
+        unique = set(statuses)
+        sent.append({
+            "id": mid,
+            "to": parts[0]["DestinationNumber"],
+            "message": message,
+            "sent_at": parts[0]["SendingDateTime"],
+            "delivered_at": max(delivered) if delivered else None,
+            "status": statuses[0] if len(unique) == 1 else "Mixed",
+            "ack_requested": not all(s == _NO_REPORT for s in statuses),
+            "ack_received": all(s in _DELIVERY_STATES for s in statuses),
+        })
+
+    logger.info("Listed %d sent message(s)", len(sent))
+    return sent
+
+
+def delete_sent():
+    """Remove every message from the sent-items log. Returns the count removed."""
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT COUNT(*) FROM sentitems;")
+    count = cur.fetchone()[0]
+    cur.execute("DELETE FROM sentitems;")
+    conn.commit()
+    conn.close()
+    logger.info("Deleted %d sent message(s)", count)
+    return count
+
+
 def get_status_overview():
     """Return a global snapshot of the SMS database.
 

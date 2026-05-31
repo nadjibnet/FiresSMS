@@ -6,7 +6,9 @@
 
 ## 📦 Features
 - 📨 Send and receive SMS messages via a web API
-- 🐳 Containerised using Docker and Docker Compose
+- 📋 Inspect the send queue, sent log, and a global gateway status
+- ✅ Optional per-message delivery reports (ACK) tracked in the database
+- 🐳 Containerised using Docker and Docker Compose (or a single all-in-one image)
 - ⚙️ Configurable Gammu integration for different modem types
 - 🔧 Simple, portable deployment
 - 💽 Use the SQLite database
@@ -28,7 +30,9 @@ FiresSMS/
 │ │ └── sms.py # send / receive / pending / status logic
 │ └── gammu-smsd/ # Gammu SMSD container
 ├── database # folder for database
-├── docker-compose.yaml
+├── docker-compose.yaml # two-container setup (gammu + api)
+├── Dockerfile # all-in-one image (gammu + api in one container)
+├── entrypoint.sh # all-in-one startup: env overrides + both processes
 └── README.md
 ```
 
@@ -61,12 +65,58 @@ This will start:
 gammu-smsd: the SMS daemon container
 api: the REST API for sending and managing messages
 
+### Alternative: all-in-one image
+
+A single image (root `Dockerfile`) bundles **both** gammu-smsd and the API in
+one container, configured entirely through environment variables. The
+two-container `docker-compose.yaml` above remains the canonical setup; this is a
+self-contained alternative.
+
+```bash
+docker build -t firessms .
+docker run --privileged \
+  --device /dev/ttyUSB0 \
+  -p 8080:8080 \
+  -e API_TOKEN=my-secret-token \
+  -e GAMMU_DEVICE=/dev/ttyUSB0 \
+  -v firessms-db:/var/lib/gammu \
+  firessms
+```
+
+Each variable defaults to the value baked into the config files; set one only to
+override it. USB passthrough (`--device`, `--privileged`) is a runtime concern
+and cannot come from an env var.
+
+| Variable | Overrides | Default |
+|----------|-----------|---------|
+| `GAMMU_DEVICE` | modem serial port (`port =` in gammurc + smsdrc) | `/dev/ttyUSB0` |
+| `GAMMU_CONNECTION` | modem connection (`connection =`) | `at115200` |
+| `API_TOKEN` | API authentication token | `changeme` |
+| `API_PORT` | API listen / exposed port | `8080` |
+| `GAMMU_DB_PATH` | SQLite DB path (kept on the `/var/lib/gammu` volume) | `/var/lib/gammu/smsd.db` |
+
+The SQLite database lives on the `/var/lib/gammu` volume, so messages persist
+across restarts. On startup the container prints the effective configuration
+(with the token masked) to its logs.
+
 #### 📡 Usage
+
+All endpoints require the API token (in the JSON body for `POST`, or as a
+`?token=` query parameter for `GET`/`DELETE`).
+
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| `POST` | `/send` | Queue an SMS (optionally request a delivery report with `"ack": true`) |
+| `GET` | `/receive` | Read received messages (drains the inbox into the archive) |
+| `GET` | `/pending` | List messages still waiting in the send queue |
+| `GET` | `/sent` | List sent messages with content, timestamps and ACK state |
+| `DELETE` | `/sent` | Remove all messages from the sent log |
+| `GET` | `/status` | Global overview: counts, pending items, ACK breakdown, modem state |
 
 Sending an SMS
 
 POST to the API:
-URL is http://yourserver:8080 (if you need to change the port, then you can edit the Docker compose file to change the port routing to the Docker container or edit the Python app under /dockers/api/app.py
+URL is http://yourserver:8080 (to change the port, edit the port mapping in `docker-compose.yaml`, or set the `API_PORT` env var when using the all-in-one image)
 
 ```http
 POST /send
@@ -102,9 +152,11 @@ The response returns the queue ID(s) so each message can be tracked:
 ```
 
 **Requesting a delivery report (ACK)** — add `"ack": true` to ask the network
-for a delivery receipt for that message. The result can then be polled via
-`/status` (see below). Note: not all modems/operators support delivery reports,
-and some bill extra for them.
+for a delivery receipt for that message. The outcome then shows up under
+`/sent` (`ack_received` / `delivered_at`). For the gateway to record incoming
+reports, `smsdrc` must have `DeliveryReport = sms` (already set in this repo).
+Note: not all modems/operators support delivery reports, and some bill extra
+for them.
 
 ```http
 POST /send
@@ -121,7 +173,7 @@ Content-Type: application/json
 
 List the SMS currently waiting to be sent (the `outbox`). A message only
 appears here while it is pending or retrying; once handed to the network it
-leaves the queue and can be tracked via `/status`.
+leaves the queue and appears under `/sent`.
 
 ```http://yoururl.url:8080/pending?token=my-secret-token```
 The response:
@@ -142,6 +194,64 @@ The response:
     }
   ]
 }
+```
+
+#### Listing sent messages
+
+Returns every message that has been sent (the `sentitems` table) with its
+content, timestamps and delivery (ACK) state.
+
+- `ack_requested` — whether a delivery report was asked for at send time.
+- `ack_received` — `true` once the network report has come back.
+- `delivered_at` — when the report arrived (null if none).
+
+The `status` + these two flags let you tell the cases apart:
+
+| `status` | `ack_requested` | `ack_received` | Meaning |
+|----------|-----------------|----------------|---------|
+| `SendingOKNoReport` | `false` | `false` | Sent without `"ack": true` — no report asked for. |
+| `SendingOK` | `true` | `false` | Report requested, not yet received (wait, or operator sent none). |
+| `DeliveryOK` | `true` | `true` | Delivered — ACK received. |
+
+```http://yoururl.url:8080/sent?token=my-secret-token```
+The response:
+```json
+{
+  "count": 2,
+  "sent": [
+    {
+      "id": 43,
+      "to": "+420123456789",
+      "message": "Hello from Flask SMS gateway!",
+      "sent_at": "2025-10-26 09:10:02",
+      "delivered_at": "2025-10-26 09:10:08",
+      "status": "DeliveryOK",
+      "ack_requested": true,
+      "ack_received": true
+    },
+    {
+      "id": 42,
+      "to": "+420987654321",
+      "message": "No report requested",
+      "sent_at": "2025-10-26 09:05:55",
+      "delivered_at": null,
+      "status": "SendingOKNoReport",
+      "ack_requested": false,
+      "ack_received": false
+    }
+  ]
+}
+```
+
+**Clearing the sent log** — remove every message from `sentitems` with a
+`DELETE` to the same URL:
+
+```http
+DELETE /sent?token=my-secret-token
+```
+The response:
+```json
+{ "status": "Sent messages removed", "deleted": 12 }
 ```
 
 #### Gateway status (global overview)
