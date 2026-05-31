@@ -112,6 +112,8 @@ Authorization: Bearer my-secret-token
 |--------|----------|---------|
 | `POST` | `/send` | Queue an SMS (optionally request a delivery report with `"ack": true`) |
 | `GET` | `/receive` | Read received messages (drains the inbox into the archive) |
+| `GET` | `/archive` | List archived (already-read) received messages |
+| `DELETE` | `/archive` | Remove all messages from the archive |
 | `GET` | `/pending` | List messages still waiting in the send queue |
 | `GET` | `/sent` | List sent messages with content, timestamps and ACK state |
 | `DELETE` | `/sent` | Remove all messages from the sent log |
@@ -337,6 +339,38 @@ The response:
         "received": "2025-10-26 08:51:31"
     }
 ]
+```
+
+#### The archive
+
+`/receive` moves messages out of the inbox into the `archive` table. List them
+(they are not removed by reading):
+
+```http
+GET /archive
+Authorization: Bearer my-secret-token
+```
+The response is an array, same shape as `/receive`:
+```json
+[
+  {
+    "from": "+420123456789",
+    "id": 1,
+    "message": "Thanks for info",
+    "received": "2025-10-26 08:51:22"
+  }
+]
+```
+
+**Clearing the archive** — remove every archived message:
+
+```http
+DELETE /archive
+Authorization: Bearer my-secret-token
+```
+The response:
+```json
+{ "status": "Archived messages removed", "deleted": 34 }
 ```
 
 #### 🛠️ Configuration

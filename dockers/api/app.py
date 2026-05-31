@@ -61,6 +61,34 @@ def receive_sms():
 
 
 # -----------------------------
+# Endpoint: /archive
+# -----------------------------
+@app.route("/archive", methods=["GET"])
+def archive_sms():
+    if not authorized():
+        return jsonify({"error": "Invalid or missing token"}), 401
+
+    try:
+        return jsonify(sms.get_archive()), 200
+    except Exception as e:
+        app.logger.exception("Failed to read archive: %s", e)
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/archive", methods=["DELETE"])
+def delete_archive_sms():
+    if not authorized():
+        return jsonify({"error": "Invalid or missing token"}), 401
+
+    try:
+        deleted = sms.delete_archive()
+        return jsonify({"status": "Archived messages removed", "deleted": deleted}), 200
+    except Exception as e:
+        app.logger.exception("Failed to delete archive: %s", e)
+        return jsonify({"error": str(e)}), 500
+
+
+# -----------------------------
 # Endpoint: /pending
 # -----------------------------
 @app.route("/pending", methods=["GET"])

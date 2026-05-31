@@ -80,6 +80,38 @@ def receive_and_archive():
     return messages
 
 
+def get_archive():
+    """List archived (already-read) received messages."""
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM archive ORDER BY ReceivingDateTime ASC;")
+    rows = cur.fetchall()
+    conn.close()
+
+    messages = [{
+        "id": row["ID"],
+        "from": row["SenderNumber"],
+        "message": row["TextDecoded"],
+        "received": row["ReceivingDateTime"],
+    } for row in rows]
+
+    logger.info("Listed %d archived message(s)", len(messages))
+    return messages
+
+
+def delete_archive():
+    """Remove every message from the archive. Returns the count removed."""
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT COUNT(*) FROM archive;")
+    count = cur.fetchone()[0]
+    cur.execute("DELETE FROM archive;")
+    conn.commit()
+    conn.close()
+    logger.info("Deleted %d archived message(s)", count)
+    return count
+
+
 def get_pending():
     """List SMS currently waiting in the outbox (the send queue)."""
     conn = get_db_connection()
