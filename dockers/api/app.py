@@ -1,4 +1,5 @@
 from flask import Flask, request, jsonify
+import os
 import logging
 
 from services.auth import validate_token
@@ -84,4 +85,4 @@ def status_sms():
 # Main entry point
 # -----------------------------
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8080)
+    app.run(host="0.0.0.0", port=int(os.getenv("API_PORT", "8080")))
