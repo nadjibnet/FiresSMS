@@ -247,12 +247,10 @@ def get_status_overview():
             "archive": archive_count,        # received and processed
         },
         "pending": {
-            "count": pending_count,
             "by_status": pending_by_status,
             "items": pending_items,
         },
         "sent": {
-            "count": sent_count,
             "by_status": sent_by_status,     # incl. DeliveryOK/Failed/Pending (ACK)
         },
         "modems": modems,

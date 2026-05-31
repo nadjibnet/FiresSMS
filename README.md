@@ -101,8 +101,12 @@ across restarts. On startup the container prints the effective configuration
 
 #### 📡 Usage
 
-All endpoints require the API token (in the JSON body for `POST`, or as a
-`?token=` query parameter for `GET`/`DELETE`).
+All endpoints require the API token in the `Authorization` header as a Bearer
+token. The token is **never** accepted in the query string or request body.
+
+```
+Authorization: Bearer my-secret-token
+```
 
 | Method | Endpoint | Purpose |
 |--------|----------|---------|
@@ -120,9 +124,9 @@ URL is http://yourserver:8080 (to change the port, edit the port mapping in `doc
 
 ```http
 POST /send
+Authorization: Bearer my-secret-token
 Content-Type: application/json
 {
-  "token": "my-secret-token",
   "number": "+420123456789",
   "message": "Hello from Flask SMS gateway!"
 }
@@ -131,9 +135,9 @@ or send message to multiple numbers
 
 ```http
 POST /send
+Authorization: Bearer my-secret-token
 Content-Type: application/json
 {
-  "token": "my-secret-token",
   "number": ["+420123456789","+420987654321"],
   "message": "Hello from Flask SMS gateway!"
 }
@@ -160,9 +164,9 @@ for them.
 
 ```http
 POST /send
+Authorization: Bearer my-secret-token
 Content-Type: application/json
 {
-  "token": "my-secret-token",
   "number": "+420123456789",
   "message": "Hello from Flask SMS gateway!",
   "ack": true
@@ -175,25 +179,25 @@ List the SMS currently waiting to be sent (the `outbox`). A message only
 appears here while it is pending or retrying; once handed to the network it
 leaves the queue and appears under `/sent`.
 
-```http://yoururl.url:8080/pending?token=my-secret-token```
-The response:
+```http
+GET /pending
+Authorization: Bearer my-secret-token
+```
+The response is an array of pending messages:
 ```json
-{
-  "count": 1,
-  "queue": [
-    {
-      "id": 42,
-      "to": "+420123456789",
-      "message": "Hello from Flask SMS gateway!",
-      "status": "Reserved",
-      "status_code": -1,
-      "retries": 0,
-      "queued_at": "2025-10-26 08:51:22",
-      "send_after": "2025-10-26 08:51:22",
-      "ack_requested": true
-    }
-  ]
-}
+[
+  {
+    "id": 42,
+    "to": "+420123456789",
+    "message": "Hello from Flask SMS gateway!",
+    "status": "Reserved",
+    "status_code": -1,
+    "retries": 0,
+    "queued_at": "2025-10-26 08:51:22",
+    "send_after": "2025-10-26 08:51:22",
+    "ack_requested": true
+  }
+]
 ```
 
 #### Listing sent messages
@@ -213,41 +217,42 @@ The `status` + these two flags let you tell the cases apart:
 | `SendingOK` | `true` | `false` | Report requested, not yet received (wait, or operator sent none). |
 | `DeliveryOK` | `true` | `true` | Delivered — ACK received. |
 
-```http://yoururl.url:8080/sent?token=my-secret-token```
-The response:
+```http
+GET /sent
+Authorization: Bearer my-secret-token
+```
+The response is an array of sent messages:
 ```json
-{
-  "count": 2,
-  "sent": [
-    {
-      "id": 43,
-      "to": "+420123456789",
-      "message": "Hello from Flask SMS gateway!",
-      "sent_at": "2025-10-26 09:10:02",
-      "delivered_at": "2025-10-26 09:10:08",
-      "status": "DeliveryOK",
-      "ack_requested": true,
-      "ack_received": true
-    },
-    {
-      "id": 42,
-      "to": "+420987654321",
-      "message": "No report requested",
-      "sent_at": "2025-10-26 09:05:55",
-      "delivered_at": null,
-      "status": "SendingOKNoReport",
-      "ack_requested": false,
-      "ack_received": false
-    }
-  ]
-}
+[
+  {
+    "id": 43,
+    "to": "+420123456789",
+    "message": "Hello from Flask SMS gateway!",
+    "sent_at": "2025-10-26 09:10:02",
+    "delivered_at": "2025-10-26 09:10:08",
+    "status": "DeliveryOK",
+    "ack_requested": true,
+    "ack_received": true
+  },
+  {
+    "id": 42,
+    "to": "+420987654321",
+    "message": "No report requested",
+    "sent_at": "2025-10-26 09:05:55",
+    "delivered_at": null,
+    "status": "SendingOKNoReport",
+    "ack_requested": false,
+    "ack_received": false
+  }
+]
 ```
 
 **Clearing the sent log** — remove every message from `sentitems` with a
 `DELETE` to the same URL:
 
 ```http
-DELETE /sent?token=my-secret-token
+DELETE /sent
+Authorization: Bearer my-secret-token
 ```
 The response:
 ```json
@@ -260,7 +265,10 @@ Returns a snapshot of the whole database: message counts per table, what is
 currently pending, the delivery (ACK) breakdown of sent messages, and modem
 state.
 
-```http://yoururl.url:8080/status?token=my-secret-token```
+```http
+GET /status
+Authorization: Bearer my-secret-token
+```
 The response:
 ```json
 {
@@ -271,7 +279,6 @@ The response:
     "archive": 34
   },
   "pending": {
-    "count": 1,
     "by_status": { "Reserved": 1 },
     "items": [
       {
@@ -285,7 +292,6 @@ The response:
     ]
   },
   "sent": {
-    "count": 12,
     "by_status": { "SendingOKNoReport": 2, "DeliveryOK": 9, "DeliveryFailed": 1 }
   },
   "modems": [
@@ -311,7 +317,10 @@ The `sent.by_status` breakdown is where ACKs surface: `DeliveryOK` /
 #### Receiving SMS
 The API will also allow read the sms by GET request.
 
-```http://yoururl.url:8080/receive?token=my-secret-token```
+```http
+GET /receive
+Authorization: Bearer my-secret-token
+```
 The response:
 ```json
 [

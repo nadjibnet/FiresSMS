@@ -14,14 +14,24 @@ logging.basicConfig(
 
 
 # -----------------------------
+# Auth helper
+# -----------------------------
+def authorized():
+    """Validate the API token from the 'Authorization: Bearer <token>' header."""
+    header = request.headers.get("Authorization", "")
+    token = header[7:].strip() if header.startswith("Bearer ") else None
+    return validate_token(token)
+
+
+# -----------------------------
 # Endpoint: /send
 # -----------------------------
 @app.route("/send", methods=["POST"])
 def send_sms():
-    data = request.get_json(force=True)
-    if not data or not validate_token(data.get("token") if isinstance(data, dict) else None):
+    if not authorized():
         return jsonify({"error": "Invalid or missing token"}), 401
 
+    data = request.get_json(force=True) or {}
     number = data.get("number")
     message = data.get("message")
     if not number or not message:
@@ -40,7 +50,7 @@ def send_sms():
 # -----------------------------
 @app.route("/receive", methods=["GET"])
 def receive_sms():
-    if not validate_token(request.args.get("token")):
+    if not authorized():
         return jsonify({"error": "Invalid or missing token"}), 401
 
     try:
@@ -55,12 +65,11 @@ def receive_sms():
 # -----------------------------
 @app.route("/pending", methods=["GET"])
 def pending_sms():
-    if not validate_token(request.args.get("token")):
+    if not authorized():
         return jsonify({"error": "Invalid or missing token"}), 401
 
     try:
-        queue = sms.get_pending()
-        return jsonify({"count": len(queue), "queue": queue}), 200
+        return jsonify(sms.get_pending()), 200
     except Exception as e:
         app.logger.exception("Failed to read queue: %s", e)
         return jsonify({"error": str(e)}), 500
@@ -71,12 +80,11 @@ def pending_sms():
 # -----------------------------
 @app.route("/sent", methods=["GET"])
 def sent_sms():
-    if not validate_token(request.args.get("token")):
+    if not authorized():
         return jsonify({"error": "Invalid or missing token"}), 401
 
     try:
-        sent = sms.get_sent()
-        return jsonify({"count": len(sent), "sent": sent}), 200
+        return jsonify(sms.get_sent()), 200
     except Exception as e:
         app.logger.exception("Failed to read sent items: %s", e)
         return jsonify({"error": str(e)}), 500
@@ -84,7 +92,7 @@ def sent_sms():
 
 @app.route("/sent", methods=["DELETE"])
 def delete_sent_sms():
-    if not validate_token(request.args.get("token")):
+    if not authorized():
         return jsonify({"error": "Invalid or missing token"}), 401
 
     try:
@@ -100,7 +108,7 @@ def delete_sent_sms():
 # -----------------------------
 @app.route("/status", methods=["GET"])
 def status_sms():
-    if not validate_token(request.args.get("token")):
+    if not authorized():
         return jsonify({"error": "Invalid or missing token"}), 401
 
     try:
